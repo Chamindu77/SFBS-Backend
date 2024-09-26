@@ -18,7 +18,7 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Allow requests from this origin
+    origin: 'https://verdant-boba-888f77.netlify.app', // Allow requests from this origin
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true, // If you need to include cookies in the requests
   }));
