@@ -18,9 +18,10 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-    origin: 'https://verdant-boba-888f77.netlify.app', // Allow requests from this origin
+     origin: 'https://verdant-boba-888f77.netlify.app', // Specific origin
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // If you need to include cookies in the requests
+    credentials: true, // Allow credentials to be sent
+    allowedHeaders: ['Content-Type'], // Specify allowed headers
   }));
 
 // Connect Database
