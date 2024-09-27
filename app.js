@@ -18,8 +18,8 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-     Access-Control-Allow-Origin: '*' 
-     Access-Control-Allow-Credentials: true
+     Access-Control-Allow-Origin:'https://verdant-boba-888f77.netlify.app',
+     Access-Control-Allow-Credentials: true,
      //origin: 'https://verdant-boba-888f77.netlify.app', // Specific origin
      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
      //credentials: true, // Allow credentials to be sent
