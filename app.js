@@ -85,7 +85,7 @@ const corsOptions = {
   origin: 'https://sfbs-frontend.vercel.app', // Replace with your frontend URL
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
 };
 
 app.use(cors(corsOptions));
