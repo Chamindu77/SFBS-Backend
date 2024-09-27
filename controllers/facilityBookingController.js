@@ -32,13 +32,16 @@ exports.createFacilityBooking = [
   upload.single('receipt'),
   async (req, res) => {
     const { userName, userEmail, userPhoneNumber, sportName, courtNumber, courtPrice, date, timeSlots } = req.body;
-
+    console.log('Request Body:', req.body);
+    console.log('Uploaded File:', req.file);
     try {
       if (!req.file) {
         return res.status(400).json({ msg: 'Receipt is required for booking' });
       }
 
       let slotsArray = typeof timeSlots === 'string' ? JSON.parse(timeSlots) : timeSlots;
+      console.log('Time Slots:', slotsArray);
+
       if (!Array.isArray(slotsArray)) {
         return res.status(400).json({ msg: 'Invalid timeSlots format. Must be an array.' });
       }
