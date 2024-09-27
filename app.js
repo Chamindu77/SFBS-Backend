@@ -82,7 +82,7 @@ const app = express();
 
 // Configure CORS globally for all routes
 const corsOptions = {
-  origin: 'https://sfbs-frontend.vercel.app', 'http://localhost:3000', // Replace with your frontend URL
+  origin: 'https://sfbs-frontend.vercel.app', // Replace with your frontend URL
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
