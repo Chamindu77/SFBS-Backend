@@ -20,7 +20,7 @@ const app = express();
 
 
 app.options('*', cors({
-    origin: 'https://verdant-boba-888f77.netlify.app',
+    origin: 'https://sfbs-frontend.vercel.app',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
 }));
