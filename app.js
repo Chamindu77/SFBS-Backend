@@ -18,10 +18,19 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Allow requests from this origin
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // If you need to include cookies in the requests
+     Access-Control-Allow-Origin:'https://verdant-boba-888f77.netlify.app',
+     Access-Control-Allow-Credentials: true,
+     //origin: 'https://verdant-boba-888f77.netlify.app', // Specific origin
+     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+     //credentials: true, // Allow credentials to be sent
+     allowedHeaders: ['Content-Type'], // Specify allowed headers
   }));
+
+// app.options('*', cors({
+//     origin: 'https://verdant-boba-888f77.netlify.app',
+//     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+//     credentials: true,
+// }));
 
 // Connect Database
 connectDB();
@@ -34,6 +43,10 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 //app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
 
 // Define Routes
 app.use('/api/v1/auth', authRoutes );
