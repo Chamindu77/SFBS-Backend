@@ -1,150 +1,10 @@
-// const mongoose = require('mongoose');
-// const multer = require('multer');
-// const path = require('path');
-// const QRCode = require('qrcode');
-// const FacilityBooking = require('../models/FacilityBooking');
-// const Facility = require('../models/Facility'); 
-
-
-// const ALL_SLOTS = [
-//   "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
-//   "12:00 - 13:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00",
-//   "16:00 - 17:00", "17:00 - 18:00", 
-// ];
-
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, 'uploads/facility-receipts');
-//   },
-//   filename: (req, file, cb) => {
-//     const fileName = `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`;
-//     cb(null, fileName);
-//   }
-// });
-
-// const upload = multer({ storage });
-
-// // backend/controllers/facilityBookingController.js
-
-// const sendFacilityBookingConfirmationEmail = require('../utils/facilityEmailService'); 
-
-// exports.createFacilityBooking = [
-//   upload.single('receipt'),
-//   async (req, res) => {
-//     const { userName, userEmail, userPhoneNumber, sportName, courtNumber, courtPrice, date, timeSlots } = req.body;
-//     console.log('Request Body:', req.body);
-//     console.log('Uploaded File:', req.file);
-//     try {
-//       if (!req.file) {
-//         return res.status(400).json({ msg: 'Receipt is required for booking' });
-//       }
-
-//       let slotsArray = typeof timeSlots === 'string' ? JSON.parse(timeSlots) : timeSlots;
-//       console.log('Time Slots:', slotsArray);
-
-//       if (!Array.isArray(slotsArray)) {
-//         return res.status(400).json({ msg: 'Invalid timeSlots format. Must be an array.' });
-//       }
-
-//       const invalidSlots = slotsArray.filter(slot => !ALL_SLOTS.includes(slot));
-//       if (invalidSlots.length > 0) {
-//         return res.status(400).json({ msg: 'Invalid time slots', invalidSlots });
-//       }
-
-//       const bookingDate = new Date(date);
-//       const today = new Date();
-//       today.setHours(0, 0, 0, 0);
-
-//       if (bookingDate < today) {
-//         return res.status(400).json({ msg: 'Booking date cannot be in the past' });
-//       }
-
-//       const existingBookings = await FacilityBooking.find({
-//         courtNumber,
-//         date,
-//         sportName,
-//         timeSlots: { $in: slotsArray }
-//       });
-
-//       if (existingBookings.length > 0) {
-//         const unavailableSlots = existingBookings.flatMap(booking => booking.timeSlots)
-//                                                 .filter(slot => slotsArray.includes(slot));
-//         return res.status(400).json({ msg: 'Some time slots are already booked', unavailableSlots });
-//       }
-
-//       const totalHours = slotsArray.length;
-//       const totalPrice = courtPrice * totalHours;
-
-//       const facilityBooking = new FacilityBooking({
-//         userId: req.user.id,
-//         userName,
-//         userEmail,
-//         userPhoneNumber,
-//         sportName,
-//         courtNumber,
-//         courtPrice,
-//         date,
-//         timeSlots: slotsArray,
-//         totalHours,
-//         totalPrice,
-//         receipt: req.file.path
-//       });
-
-//       await facilityBooking.save();
-
-//       const qrCodeData = JSON.stringify({
-//         bookingId: facilityBooking._id,
-//         userName: facilityBooking.userName,
-//         userEmail: facilityBooking.userEmail,
-//         sportName: facilityBooking.sportName,
-//         courtNumber: facilityBooking.courtNumber,
-//         date: facilityBooking.date,
-//         timeSlots: facilityBooking.timeSlots,
-//         totalHours: facilityBooking.totalHours,
-//         courtPrice: facilityBooking.courtPrice,
-//         totalPrice: facilityBooking.totalPrice
-//       });
-
-//       const qrCodePath = `uploads/facility-receipts/qr${facilityBooking._id}-qrcode.png`;
-
-//       await QRCode.toFile(qrCodePath, qrCodeData);
-
-//       facilityBooking.qrCode = qrCodePath;
-//       await facilityBooking.save();
-
-//       // Send booking confirmation email
-//       await sendFacilityBookingConfirmationEmail(userEmail, {
-//         bookingId: facilityBooking._id,
-//         userName,
-//         sportName,
-//         courtNumber,
-//         date: facilityBooking.date,
-//         timeSlots: slotsArray,
-//         totalHours,
-//         totalPrice,
-//         receipt: facilityBooking.receipt,
-//         qrCode: facilityBooking.qrCode
-//       });
-
-//       res.status(201).json({
-//         msg: 'Booking created successfully, and confirmation email sent',
-//         facilityBooking,
-//       });
-//     } catch (err) {
-//       console.error('Error creating facility booking:', err.message);
-//       res.status(500).json({ msg: 'Server error' });
-//     }
-//   }
-// ];
-
 const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const QRCode = require('qrcode');
 const FacilityBooking = require('../models/FacilityBooking');
-const Facility = require('../models/Facility');
-const fs = require('fs');
-const os = require('os');
+const Facility = require('../models/Facility'); 
+
 
 const ALL_SLOTS = [
   "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
@@ -152,12 +12,9 @@ const ALL_SLOTS = [
   "16:00 - 17:00", "17:00 - 18:00", 
 ];
 
-// Use temporary directory for file storage if the environment has a read-only file system
-const UPLOAD_DIR = process.env.UPLOAD_DIR || os.tmpdir();
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR); // Temporary directory or set in environment
+    cb(null, 'uploads/facility-receipts');
   },
   filename: (req, file, cb) => {
     const fileName = `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`;
@@ -168,22 +25,20 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // backend/controllers/facilityBookingController.js
-const sendFacilityBookingConfirmationEmail = require('../utils/facilityEmailService');
+
+const sendFacilityBookingConfirmationEmail = require('../utils/facilityEmailService'); 
 
 exports.createFacilityBooking = [
   upload.single('receipt'),
   async (req, res) => {
     const { userName, userEmail, userPhoneNumber, sportName, courtNumber, courtPrice, date, timeSlots } = req.body;
-    console.log('Request Body:', req.body);
-    console.log('Uploaded File:', req.file);
-
+    
     try {
       if (!req.file) {
         return res.status(400).json({ msg: 'Receipt is required for booking' });
       }
 
       let slotsArray = typeof timeSlots === 'string' ? JSON.parse(timeSlots) : timeSlots;
-      console.log('Time Slots:', slotsArray);
 
       if (!Array.isArray(slotsArray)) {
         return res.status(400).json({ msg: 'Invalid timeSlots format. Must be an array.' });
@@ -248,7 +103,7 @@ exports.createFacilityBooking = [
         totalPrice: facilityBooking.totalPrice
       });
 
-      const qrCodePath = path.join(UPLOAD_DIR, `qr${facilityBooking._id}-qrcode.png`);
+      const qrCodePath = `uploads/facility-receipts/qr${facilityBooking._id}-qrcode.png`;
 
       await QRCode.toFile(qrCodePath, qrCodeData);
 
@@ -279,7 +134,6 @@ exports.createFacilityBooking = [
     }
   }
 ];
-
 
 
 exports.getAvailableTimeSlots = async (req, res) => {
