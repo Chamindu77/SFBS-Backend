@@ -214,8 +214,28 @@ exports.getSessionRequestById = async (req, res) => {
 
 
 const QRCode = require('qrcode');
-const fs = require('fs');
+const cloudinary = require('../config/cloudinaryConfig'); // Cloudinary configuration
+const multerCloudinary = require('multer'); // Renaming multer to multerCloudinary
 const sendSessionBookingConfirmationEmail = require('../utils/sendSessionBookingConfirmationEmail');
+
+
+// Use Multer's memory storage to store files in memory for receipts
+const uploadReceipt = multerCloudinary({ storage: multerCloudinary.memoryStorage() });
+
+// Use Multer's memory storage to store files in memory for QR codes if needed
+const uploadQRCode = multerCloudinary({ storage: multerCloudinary.memoryStorage() });
+
+// Utility function to upload files to Cloudinary
+const uploadToCloudinary = (buffer, folder) => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream({ resource_type: 'auto', folder: folder }, (error, result) => {
+      if (error) {
+        return reject(error);  // Reject the promise in case of error
+      }
+      resolve(result);  // Resolve the promise with Cloudinary result
+    }).end(buffer);  // Use the buffer to upload the file
+  });
+};
 
 // Book a Session
 exports.bookSession = async (req, res) => {
@@ -248,6 +268,7 @@ exports.bookSession = async (req, res) => {
     const { individualSessionPrice, groupSessionPrice } = coachProfile.coachPrice;
     const sessionFee = sessionRequest.sessionType === 'Individual Session' ? individualSessionPrice : groupSessionPrice;
 
+    // Create a new SessionBooking entry in the database
     const newBooking = new SessionBooking({
       sessionRequestId: sessionRequest._id,
       userId: sessionRequest.userId,
@@ -263,19 +284,23 @@ exports.bookSession = async (req, res) => {
       coachLevel: coachProfile.coachLevel,
       sessionFee: sessionFee,
       courtNo: sessionRequest.courtNo,
-      receipt: sessionRequest.receipt 
+      receipt: sessionRequest.receipt // Store receipt Cloudinary URL
     });
 
     await newBooking.save();
 
-    // Generate QR Code
+    // Generate QR code with booking details
     const qrData = `Booking ID: ${newBooking._id}\nUser: ${newBooking.userName}\nSport: ${newBooking.sportName}\nSession Type: ${newBooking.sessionType}\nCoach: ${newBooking.coachName}\nFee: Rs. ${newBooking.sessionFee}\nDate & Time: ${newBooking.bookedTimeSlots.map(slot => `${slot.date} ${slot.timeSlot}`).join(', ')}`;
-    const qrPath = `./uploads/session-booking-qrcodes/${newBooking._id}.png`;
+    
+    // Generate QR code as a buffer
+    const qrCodeBuffer = await QRCode.toBuffer(qrData);
 
-    await QRCode.toFile(qrPath, qrData);
+    // Upload QR code to Cloudinary in the 'session_qrcodes' folder
+    const qrCodeResult = await uploadToCloudinary(qrCodeBuffer, 'session_qrcodes');
+    const qrCodeUrl = qrCodeResult.secure_url; // Cloudinary QR code URL
 
-    // Save QR Code URL to the booking
-    newBooking.qrCodeUrl = `http://localhost:5000/uploads/session-booking-qrcodes/${newBooking._id}.png`;
+    // Update booking with QR code URL
+    newBooking.qrCodeUrl = qrCodeUrl;
     await newBooking.save();
 
     // Send email with QR code
@@ -295,8 +320,8 @@ exports.bookSession = async (req, res) => {
       coachLevel: newBooking.coachLevel,
       sessionFee: newBooking.sessionFee,
       courtNo: newBooking.courtNo,  
-      receipt: newBooking.receipt,
-      qrCodeUrl: newBooking.qrCodeUrl,
+      receipt: newBooking.receipt, // Cloudinary receipt URL
+      qrCodeUrl: newBooking.qrCodeUrl, // Cloudinary QR code URL
 
       _id: newBooking._id,
       createdAt: newBooking.createdAt,
@@ -309,6 +334,42 @@ exports.bookSession = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
+// Upload Receipt for Session Request
+exports.uploadReceipt = (req, res) => {
+  uploadReceipt.single('receipt')(req, res, async (err) => {
+    try {
+      if (err) {
+        return res.status(400).json({ msg: err });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ msg: 'No file uploaded' });
+      }
+
+      let sessionRequest = await SessionRequest.findById(req.params.id);
+
+      if (!sessionRequest) {
+        return res.status(404).json({ msg: 'Session request not found' });
+      }
+
+      // Upload the receipt to Cloudinary in the 'session_receipts' folder
+      const receiptResult = await uploadToCloudinary(req.file.buffer, 'session_receipts');
+      const receiptUrl = receiptResult.secure_url; // Cloudinary receipt URL
+
+      sessionRequest.receipt = receiptUrl;
+      await sessionRequest.save();
+
+      res.json(sessionRequest);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send('Server error');
+    }
+  });
+};
+
+
+
 
 
 // Get User's Booking History
@@ -394,35 +455,7 @@ function checkFileType(file, cb) {
   }
 }
 
-// Upload Receipt for Session Request
-exports.uploadReceipt = (req, res) => {
-  upload(req, res, async (err) => {
-    try {
-      if (err) {
-        return res.status(400).json({ msg: err });
-      }
 
-      if (!req.file) {
-        return res.status(400).json({ msg: 'No file uploaded' });
-      }
-
-      let sessionRequest = await SessionRequest.findById(req.params.id);
-
-      if (!sessionRequest) {
-        return res.status(404).json({ msg: 'Session request not found' });
-      }
-      const receiptUrl = `http://localhost:5000/uploads/receipts/${req.file.filename}`;
-
-      sessionRequest.receipt = receiptUrl;
-      await sessionRequest.save();
-
-      res.json(sessionRequest);
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server error');
-    }
-  });
-};
 
 exports.getQrCodeById = async (req, res) => {
   try {
