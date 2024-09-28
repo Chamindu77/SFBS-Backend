@@ -1,22 +1,23 @@
 const EquipmentBooking = require('../models/EquipmentBooking');
 const QRCode = require('qrcode');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('../config/cloudinaryConfig'); // Cloudinary configuration
 const sendEquipmentBookingConfirmationEmail = require('../utils/equipmentEmailService'); 
 
-// Configure Multer storage for receipt files
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/equipment-receipts'); 
-  },
-  filename: (req, file, cb) => {
-    const fileName = `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, fileName);
-  }
-});
+// Use Multer's memory storage to store files in memory
+const upload = multer({ storage: multer.memoryStorage() });
 
-const upload = multer({ storage });
+// Utility function to upload files to Cloudinary
+const uploadToCloudinary = (buffer, folder) => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream({ resource_type: 'auto', folder: folder }, (error, result) => {
+      if (error) {
+        return reject(error);  // Reject the promise in case of error
+      }
+      resolve(result);  // Resolve the promise with Cloudinary result
+    }).end(buffer);  // Use the buffer to upload the file
+  });
+};
 
 /**
  * Create a new equipment booking with receipt and QR code, and send confirmation email.
@@ -24,7 +25,7 @@ const upload = multer({ storage });
  * @access Private
  */
 exports.createEquipmentBooking = [
-  upload.single('receipt'), 
+  upload.single('receipt'),  // Multer middleware to handle file upload
   async (req, res) => {
     const { userName, userEmail, equipmentName, equipmentPrice, quantity, sportName, dateTime, userPhoneNumber } = req.body;
 
@@ -44,6 +45,11 @@ exports.createEquipmentBooking = [
 
       const totalPrice = equipmentPrice * quantity;
 
+      // Upload the receipt to Cloudinary in the 'equipment_receipts' folder
+      const receiptResult = await uploadToCloudinary(req.file.buffer, 'equipment_receipts');
+      const receiptUrl = receiptResult.secure_url; // Cloudinary receipt URL
+
+      // Create a new EquipmentBooking entry in the database
       const equipmentBooking = new EquipmentBooking({
         userId: req.user.id,
         userName,
@@ -55,7 +61,7 @@ exports.createEquipmentBooking = [
         dateTime,
         userPhoneNumber,
         totalPrice,
-        receipt: req.file.path
+        receipt: receiptUrl // Store Cloudinary receipt URL
       });
 
       await equipmentBooking.save();
@@ -72,20 +78,15 @@ exports.createEquipmentBooking = [
         totalPrice: equipmentBooking.totalPrice
       });
 
-      // Define QR code file path
-      const qrCodeDir = 'uploads/equipment-booking-qrcodes';
-      const qrCodePath = `${qrCodeDir}/qr${equipmentBooking._id}-qrcode.png`;
+      // Generate QR code as a buffer
+      const qrCodeBuffer = await QRCode.toBuffer(qrCodeData);  // Generate QR code buffer
 
-      // Ensure QR code directory exists
-      if (!fs.existsSync(qrCodeDir)) {
-        fs.mkdirSync(qrCodeDir, { recursive: true });
-      }
+      // Upload QR code to Cloudinary in the 'equipment_qrcodes' folder
+      const qrCodeResult = await uploadToCloudinary(qrCodeBuffer, 'equipment_qrcodes');
+      const qrCodeUrl = qrCodeResult.secure_url; // Cloudinary QR code URL
 
-      // Generate and save QR code
-      await QRCode.toFile(qrCodePath, qrCodeData);
-
-      // Add QR code path to booking details
-      equipmentBooking.qrCode = qrCodePath;
+      // Update the equipment booking with the QR code URL
+      equipmentBooking.qrCode = qrCodeUrl;
       await equipmentBooking.save();
 
       // Send booking confirmation email
@@ -98,10 +99,11 @@ exports.createEquipmentBooking = [
         quantity,
         dateTime,
         totalPrice,
-        receipt: equipmentBooking.receipt,
-        qrCode: equipmentBooking.qrCode
+        receipt: equipmentBooking.receipt,  // Send Cloudinary URL for receipt
+        qrCode: equipmentBooking.qrCode     // Send Cloudinary URL for QR code
       });
 
+      // Respond to the client
       res.status(201).json({
         msg: 'Booking created successfully, and confirmation email sent',
         equipmentBooking,
@@ -112,6 +114,7 @@ exports.createEquipmentBooking = [
     }
   }
 ];
+
 
 
 
