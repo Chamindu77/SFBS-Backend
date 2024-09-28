@@ -1,10 +1,149 @@
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+// const multer = require('multer');
+// const path = require('path');
+// const QRCode = require('qrcode');
+// const FacilityBooking = require('../models/FacilityBooking');
+// const Facility = require('../models/Facility'); 
+
+
+// const ALL_SLOTS = [
+//   "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
+//   "12:00 - 13:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00",
+//   "16:00 - 17:00", "17:00 - 18:00", 
+// ];
+
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, 'uploads/facility-receipts');
+//   },
+//   filename: (req, file, cb) => {
+//     const fileName = `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`;
+//     cb(null, fileName);
+//   }
+// });
+
+// const upload = multer({ storage });
+
+// // backend/controllers/facilityBookingController.js
+
+// const sendFacilityBookingConfirmationEmail = require('../utils/facilityEmailService'); 
+
+// exports.createFacilityBooking = [
+//   upload.single('receipt'),
+//   async (req, res) => {
+//     const { userName, userEmail, userPhoneNumber, sportName, courtNumber, courtPrice, date, timeSlots } = req.body;
+    
+//     try {
+//       if (!req.file) {
+//         return res.status(400).json({ msg: 'Receipt is required for booking' });
+//       }
+
+//       let slotsArray = typeof timeSlots === 'string' ? JSON.parse(timeSlots) : timeSlots;
+
+//       if (!Array.isArray(slotsArray)) {
+//         return res.status(400).json({ msg: 'Invalid timeSlots format. Must be an array.' });
+//       }
+
+//       const invalidSlots = slotsArray.filter(slot => !ALL_SLOTS.includes(slot));
+//       if (invalidSlots.length > 0) {
+//         return res.status(400).json({ msg: 'Invalid time slots', invalidSlots });
+//       }
+
+//       const bookingDate = new Date(date);
+//       const today = new Date();
+//       today.setHours(0, 0, 0, 0);
+
+//       if (bookingDate < today) {
+//         return res.status(400).json({ msg: 'Booking date cannot be in the past' });
+//       }
+
+//       const existingBookings = await FacilityBooking.find({
+//         courtNumber,
+//         date,
+//         sportName,
+//         timeSlots: { $in: slotsArray }
+//       });
+
+//       if (existingBookings.length > 0) {
+//         const unavailableSlots = existingBookings.flatMap(booking => booking.timeSlots)
+//                                                 .filter(slot => slotsArray.includes(slot));
+//         return res.status(400).json({ msg: 'Some time slots are already booked', unavailableSlots });
+//       }
+
+//       const totalHours = slotsArray.length;
+//       const totalPrice = courtPrice * totalHours;
+
+//       const facilityBooking = new FacilityBooking({
+//         userId: req.user.id,
+//         userName,
+//         userEmail,
+//         userPhoneNumber,
+//         sportName,
+//         courtNumber,
+//         courtPrice,
+//         date,
+//         timeSlots: slotsArray,
+//         totalHours,
+//         totalPrice,
+//         receipt: req.file.path
+//       });
+
+//       await facilityBooking.save();
+
+//       const qrCodeData = JSON.stringify({
+//         bookingId: facilityBooking._id,
+//         userName: facilityBooking.userName,
+//         userEmail: facilityBooking.userEmail,
+//         sportName: facilityBooking.sportName,
+//         courtNumber: facilityBooking.courtNumber,
+//         date: facilityBooking.date,
+//         timeSlots: facilityBooking.timeSlots,
+//         totalHours: facilityBooking.totalHours,
+//         courtPrice: facilityBooking.courtPrice,
+//         totalPrice: facilityBooking.totalPrice
+//       });
+
+//       const qrCodePath = `uploads/facility-receipts/qr${facilityBooking._id}-qrcode.png`;
+
+//       await QRCode.toFile(qrCodePath, qrCodeData);
+
+//       facilityBooking.qrCode = qrCodePath;
+//       await facilityBooking.save();
+
+//       // Send booking confirmation email
+//       await sendFacilityBookingConfirmationEmail(userEmail, {
+//         bookingId: facilityBooking._id,
+//         userName,
+//         sportName,
+//         courtNumber,
+//         date: facilityBooking.date,
+//         timeSlots: slotsArray,
+//         totalHours,
+//         totalPrice,
+//         receipt: facilityBooking.receipt,
+//         qrCode: facilityBooking.qrCode
+//       });
+
+//       res.status(201).json({
+//         msg: 'Booking created successfully, and confirmation email sent',
+//         facilityBooking,
+//       });
+//     } catch (err) {
+//       console.error('Error creating facility booking:', err.message);
+//       res.status(500).json({ msg: 'Server error' });
+//     }
+//   }
+// ];
+
+const cloudinary = require('../config/cloudinaryConfig'); // Cloudinary configuration
 const multer = require('multer');
-const path = require('path');
 const QRCode = require('qrcode');
 const FacilityBooking = require('../models/FacilityBooking');
-const Facility = require('../models/Facility'); 
+const Facility = require('../models/Facility');
+const sendFacilityBookingConfirmationEmail = require('../utils/facilityEmailService'); // Import the email sending function
 
+// Use Multer's memory storage to store files in memory
+const upload = multer({ storage: multer.memoryStorage() });
 
 const ALL_SLOTS = [
   "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
@@ -12,34 +151,33 @@ const ALL_SLOTS = [
   "16:00 - 17:00", "17:00 - 18:00", 
 ];
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/facility-receipts');
-  },
-  filename: (req, file, cb) => {
-    const fileName = `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, fileName);
-  }
-});
-
-const upload = multer({ storage });
-
-// backend/controllers/facilityBookingController.js
-
-const sendFacilityBookingConfirmationEmail = require('../utils/facilityEmailService'); 
+// Utility function to upload files to Cloudinary
+const uploadToCloudinary = (buffer, folder) => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream({ resource_type: 'auto', folder: folder }, (error, result) => {
+      if (error) {
+        return reject(error);  // Reject the promise in case of error
+      }
+      resolve(result);  // Resolve the promise with Cloudinary result
+    }).end(buffer);  // Use the buffer to upload the file
+  });
+};
 
 exports.createFacilityBooking = [
-  upload.single('receipt'),
+  upload.single('receipt'),  // Multer middleware to handle file upload
   async (req, res) => {
     const { userName, userEmail, userPhoneNumber, sportName, courtNumber, courtPrice, date, timeSlots } = req.body;
-    
+
     try {
       if (!req.file) {
         return res.status(400).json({ msg: 'Receipt is required for booking' });
       }
 
-      let slotsArray = typeof timeSlots === 'string' ? JSON.parse(timeSlots) : timeSlots;
+      // Upload the receipt to Cloudinary
+      const receiptResult = await uploadToCloudinary(req.file.buffer, 'facility_receipts');
+      const receiptUrl = receiptResult.secure_url; // Cloudinary receipt URL
 
+      let slotsArray = typeof timeSlots === 'string' ? JSON.parse(timeSlots) : timeSlots;
       if (!Array.isArray(slotsArray)) {
         return res.status(400).json({ msg: 'Invalid timeSlots format. Must be an array.' });
       }
@@ -73,6 +211,7 @@ exports.createFacilityBooking = [
       const totalHours = slotsArray.length;
       const totalPrice = courtPrice * totalHours;
 
+      // Create new facility booking in the database
       const facilityBooking = new FacilityBooking({
         userId: req.user.id,
         userName,
@@ -85,11 +224,12 @@ exports.createFacilityBooking = [
         timeSlots: slotsArray,
         totalHours,
         totalPrice,
-        receipt: req.file.path
+        receipt: receiptUrl  // Store Cloudinary receipt URL
       });
 
       await facilityBooking.save();
 
+      // Generate QR code for the booking
       const qrCodeData = JSON.stringify({
         bookingId: facilityBooking._id,
         userName: facilityBooking.userName,
@@ -103,11 +243,11 @@ exports.createFacilityBooking = [
         totalPrice: facilityBooking.totalPrice
       });
 
-      const qrCodePath = `uploads/facility-receipts/qr${facilityBooking._id}-qrcode.png`;
+      // Generate QR code as a buffer and upload it to Cloudinary
+      const qrCodeBuffer = await QRCode.toBuffer(qrCodeData);  // Create QR code buffer
+      const qrCodeResult = await uploadToCloudinary(qrCodeBuffer, 'facility_qrcodes');  // Upload QR code to Cloudinary
+      facilityBooking.qrCode = qrCodeResult.secure_url;  // Store Cloudinary QR code URL
 
-      await QRCode.toFile(qrCodePath, qrCodeData);
-
-      facilityBooking.qrCode = qrCodePath;
       await facilityBooking.save();
 
       // Send booking confirmation email
@@ -124,6 +264,7 @@ exports.createFacilityBooking = [
         qrCode: facilityBooking.qrCode
       });
 
+      // Send response to the client
       res.status(201).json({
         msg: 'Booking created successfully, and confirmation email sent',
         facilityBooking,
