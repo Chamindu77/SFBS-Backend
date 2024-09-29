@@ -1,5 +1,6 @@
-const Facility = require('../models/Facility');
 const upload = require('../middleware/uploadMiddleware');
+const Facility = require('../models/Facility');
+
 
 /**
  * Create a new facility.

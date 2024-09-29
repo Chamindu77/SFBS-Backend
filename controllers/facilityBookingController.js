@@ -342,6 +342,9 @@ exports.downloadQrCode = async (req, res) => {
 };
 
 
+const Facility = require('../models/Facility');
+
+
 // Controller to find available facilities by sport, date, and time slot with full details
 exports.getAvailableFacilities = async (req, res) => {
   const { sportName, date, timeSlot } = req.body;
