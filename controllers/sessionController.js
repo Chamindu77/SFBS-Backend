@@ -372,6 +372,9 @@ exports.uploadReceipt = (req, res) => {
 
 
 
+
+
+
 // Get User's Booking History
 exports.getUserBookings = async (req, res) => {
   try {
@@ -473,3 +476,4 @@ exports.getQrCodeById = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
