@@ -30,14 +30,6 @@ router.post('/login', login);
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 
-const cors = require('cors');
-
-// Define specific CORS options for the /google/callback route
-const googleCorsOptions = {
-  origin: 'https://sfbs-frontend.vercel.app',
-  credentials: true, // Required if you're handling cookies
-};
-
 
 // Google OAuth callback
 router.get(
