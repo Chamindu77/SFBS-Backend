@@ -164,47 +164,47 @@ app.use(session({
 }));
 
 // Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
+// app.use(passport.initialize());
+// app.use(passport.session());
 
-// Configure Google Strategy for Passport
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: 'https://sfbs-backend.vercel.app/api/v1/auth/google/callback',
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      let user = await User.findOne({ googleId: profile.id });
+// // Configure Google Strategy for Passport
+// passport.use(new GoogleStrategy({
+//     clientID: process.env.GOOGLE_CLIENT_ID,
+//     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+//     callbackURL: 'https://sfbs-backend.vercel.app/api/v1/auth/google/callback',
+//   },
+//   async (accessToken, refreshToken, profile, done) => {
+//     try {
+//       let user = await User.findOne({ googleId: profile.id });
 
 
-      // If user does not exist, create a new one
-      if (!user) {
-        user = new User({
-          googleId: profile.id,
-          name: profile.displayName,
-          email: profile.emails[0].value,
-          role: 'User', // Set default role as 'User'
-        });
-        await user.save();
-      }
+//       // If user does not exist, create a new one
+//       if (!user) {
+//         user = new User({
+//           googleId: profile.id,
+//           name: profile.displayName,
+//           email: profile.emails[0].value,
+//           role: 'User', // Set default role as 'User'
+//         });
+//         await user.save();
+//       }
 
-      return done(null, user);
-    } catch (err) {
-      return done(err, false);
-    }
-  }
-));
+//       return done(null, user);
+//     } catch (err) {
+//       return done(err, false);
+//     }
+//   }
+// ));
 
-// Serialize user into session
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
+// // Serialize user into session
+// passport.serializeUser((user, done) => {
+//   done(null, user.id);
+// });
 
-// Deserialize user from session
-passport.deserializeUser((id, done) => {
-  User.findById(id, (err, user) => done(err, user));
-});
+// // Deserialize user from session
+// passport.deserializeUser((id, done) => {
+//   User.findById(id, (err, user) => done(err, user));
+// });
 
 // Define Routes
 app.use('/api/v1/auth', require('./routes/authRoutes'));
