@@ -92,6 +92,64 @@ exports.respondToSessionRequest = async (req, res) => {
 
 const Review = require('../models/Review'); 
 
+// exports.getUserSessionRequests = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     // Check if the userId from the route matches the logged-in user's id
+//     if (req.user.id !== userId) {
+//       return res.status(403).json({ msg: 'Access denied. You can only view your own session requests.' });
+//     }
+
+//     // Fetch session requests for the specified userId and populate relevant fields, including coach image
+//     const sessionRequests = await SessionRequest.find({ userId: userId })
+//       .populate('coachProfileId', 'coachName coachLevel coachingSport coachPrice image') 
+//       .populate('userId', 'name email');
+
+//     const response = await Promise.all(sessionRequests.map(async request => {
+//       const { individualSessionPrice, groupSessionPrice } = request.coachProfileId.coachPrice;
+      
+//       // Determine the price based on the session type
+//       const sessionPrice = request.sessionType === 'Individual Session' ? individualSessionPrice : groupSessionPrice;
+
+//       // Fetch all reviews for the specific coach profile
+//       const reviews = await Review.find({ coachProfileId: request.coachProfileId._id });
+      
+//       // Calculate the average rating for the coach
+//       const avgRating = reviews.length > 0 
+//         ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length 
+//         : null;
+
+//       return {
+//         _id: request._id,
+//         userId: request.userId._id.toString(),
+//         userName: request.userName,
+//         userEmail: request.userEmail,
+//         userPhone: request.userPhone,
+//         sportName: request.sportName,
+//         sessionType: request.sessionType,
+//         coachProfileId: request.coachProfileId._id.toString(),
+//         coachId: request.coachId.toString(),
+//         coachName: request.coachProfileId.coachName,
+//         coachLevel: request.coachProfileId.coachLevel,
+//         coachingSport: request.coachProfileId.coachingSport,
+//         sessionPrice,  
+//         coachImage: request.coachProfileId.image, 
+//         avgRating: avgRating ? avgRating.toFixed(2) : 'No reviews yet', 
+//         requestedTimeSlots: request.requestedTimeSlots,
+//         status: request.status,
+//         createdAt: request.createdAt,
+//         updatedAt: request.updatedAt,
+//       };
+//     }));
+
+//     res.json(response);
+//   } catch (err) {
+//     console.error(err.message);
+//     res.status(500).send('Server error');
+//   }
+// };
+
 exports.getUserSessionRequests = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -101,23 +159,43 @@ exports.getUserSessionRequests = async (req, res) => {
       return res.status(403).json({ msg: 'Access denied. You can only view your own session requests.' });
     }
 
-    // Fetch session requests for the specified userId and populate relevant fields, including coach image
+    // Fetch session requests for the specified userId and populate relevant fields
     const sessionRequests = await SessionRequest.find({ userId: userId })
-      .populate('coachProfileId', 'coachName coachLevel coachingSport coachPrice image') 
+      .populate('coachProfileId', 'coachName coachLevel coachingSport coachPrice image')
       .populate('userId', 'name email');
 
     const response = await Promise.all(sessionRequests.map(async request => {
-      const { individualSessionPrice, groupSessionPrice } = request.coachProfileId.coachPrice;
-      
-      // Determine the price based on the session type
+      if (!request.coachProfileId) {
+        // If coachProfileId is null, handle it gracefully
+        return {
+          _id: request._id,
+          userId: request.userId._id.toString(),
+          userName: request.userName,
+          userEmail: request.userEmail,
+          userPhone: request.userPhone,
+          sportName: request.sportName,
+          sessionType: request.sessionType,
+          coachProfileId: null,
+          coachId: null,
+          coachName: 'Coach data not available',
+          coachLevel: 'N/A',
+          coachingSport: 'N/A',
+          sessionPrice: 'N/A',
+          coachImage: null,
+          avgRating: 'No reviews yet',
+          requestedTimeSlots: request.requestedTimeSlots,
+          status: request.status,
+          createdAt: request.createdAt,
+          updatedAt: request.updatedAt,
+        };
+      }
+
+      const { individualSessionPrice, groupSessionPrice } = request.coachProfileId.coachPrice || {};
       const sessionPrice = request.sessionType === 'Individual Session' ? individualSessionPrice : groupSessionPrice;
 
-      // Fetch all reviews for the specific coach profile
       const reviews = await Review.find({ coachProfileId: request.coachProfileId._id });
-      
-      // Calculate the average rating for the coach
-      const avgRating = reviews.length > 0 
-        ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length 
+      const avgRating = reviews.length > 0
+        ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length
         : null;
 
       return {
@@ -133,9 +211,9 @@ exports.getUserSessionRequests = async (req, res) => {
         coachName: request.coachProfileId.coachName,
         coachLevel: request.coachProfileId.coachLevel,
         coachingSport: request.coachProfileId.coachingSport,
-        sessionPrice,  
-        coachImage: request.coachProfileId.image, 
-        avgRating: avgRating ? avgRating.toFixed(2) : 'No reviews yet', 
+        sessionPrice: sessionPrice || 'N/A',  // Handle missing price
+        coachImage: request.coachProfileId.image,
+        avgRating: avgRating ? avgRating.toFixed(2) : 'No reviews yet',
         requestedTimeSlots: request.requestedTimeSlots,
         status: request.status,
         createdAt: request.createdAt,

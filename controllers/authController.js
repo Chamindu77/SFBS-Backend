@@ -162,6 +162,10 @@ exports.login = async (req, res) => {
     //   return res.status(400).json({ msg: 'Role mismatch' });
     // }
 
+    if (!user.isActive) {
+      return res.status(400).json({ msg: 'Account is deactivated' });
+    }
+
     const isMatch = user.decryptPassword(password);
     if (!isMatch) {
       return res.status(400).json({ msg: 'Invalid Password' });
